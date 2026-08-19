@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "node scripts/unpack.mjs",
+    "dev": "next dev",
     "build": "next build",
-    "dev": "node scripts/unpack.mjs && next dev",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

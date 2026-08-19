@@ -6,22 +6,21 @@ Free-first AI-assisted LinkedIn sales operating system for Shalcon Intelligence.
 - Supabase Auth + tenant-safe CRM
 - Leads and companies
 - Public company-website research with SSRF protection
-- Deterministic ICP scoring baseline
+- Deterministic ICP scoring (free baseline)
 - Personalized outreach drafts
 - Human approval queue
 - Campaigns
 - Content approval workflow
 - Pipeline analytics
-- Google/LinkedIn integration adapters
+- Google/LinkedIn integration placeholders
 
 ## Safety boundary
-No LinkedIn profile scraping, auto-connection requests, or automated LinkedIn DMs. Restricted actions stay human-approved/manual unless approved LinkedIn APIs explicitly permit them.
+This project does not scrape LinkedIn profiles, auto-send connection requests, or auto-send LinkedIn DMs. Restricted actions remain human-approved/manual unless approved LinkedIn APIs explicitly permit them.
 
-## Deployment
-Vercel build bootstraps the full app from `source.tar.gz.b64`, then runs `next build`. This is temporary until source is flattened into normal repository files after deployment validation.
+## Setup
+1. Copy `.env.example` to `.env.local`.
+2. Add Supabase publishable key.
+3. `npm install`
+4. `npm run dev`
 
-Core environment variables:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-
-See `.env.example` for optional AI/Google/LinkedIn variables.
+AI model, Google OAuth and LinkedIn OAuth are optional integration steps after core deployment.
