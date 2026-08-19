@@ -1,5 +1,5 @@
-import { LeadAgentApp } from '@/components/lead-agent-app';
+import { V11App } from '@/components/v11-app';
 
 export default function Home() {
-  return <LeadAgentApp />;
+  return <V11App />;
 }
