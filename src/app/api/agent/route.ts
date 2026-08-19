@@ -20,7 +20,6 @@ function extractSignals(text:string){
   for(const [label,p] of patterns) if(text.toLowerCase().includes(p)) out.push(label);
   return out.slice(0,5);
 }
-
 function inferOpportunity(text:string,industry:string|null){
   const s=(text+' '+(industry||'')).toLowerCase();
   if(/clinic|health|appointment/.test(s)) return 'Automate enquiry qualification, appointment booking and follow-ups.';
@@ -30,7 +29,6 @@ function inferOpportunity(text:string,industry:string|null){
   if(/recruit|staffing|hiring|\bhr\b/.test(s)) return 'Automate candidate screening and recruitment follow-ups.';
   return 'Audit repetitive lead, support and follow-up workflows for automation.';
 }
-
 function offerFor(industry:string|null){
   const i=(industry||'').toLowerCase();
   if(/clinic|health/.test(i)) return 'ClinicBot';
@@ -40,7 +38,6 @@ function offerFor(industry:string|null){
   if(/recruit|staffing|\bhr\b/.test(i)) return 'HireFlow';
   return 'Custom Automation';
 }
-
 function stepError(step:string,error:any){
   const detail=error?.message||error?.details||String(error||'Unknown error');
   throw new Error(`${step}: ${detail}`);
@@ -50,19 +47,16 @@ export async function POST(req:NextRequest){
   try{
     const input=Input.parse(await req.json());
     const db=serverClient(req);
-
     if(input.action==='plan_goal'){
       const goal=input.goal||'';
-      const plan=[
+      return Response.json({goal,plan:[
         {step:'select_leads',detail:'Select stored leads matching target ICP.'},
         {step:'research',detail:'Research company websites only.'},
         {step:'score',detail:'Score ICP, problem fit, signals and data quality.'},
         {step:'draft',detail:'Prepare personalized outreach.'},
         {step:'approval',detail:'Require human approval for outbound actions.'}
-      ];
-      return Response.json({goal,plan});
+      ]});
     }
-
     if(!input.leadId) return Response.json({error:'leadId required'},{status:400});
 
     const leadResult=await db.from('leads').select('*').eq('id',input.leadId).maybeSingle();
@@ -77,16 +71,10 @@ export async function POST(req:NextRequest){
       company=companyResult.data;
     }
 
-    let researchText='';
-    let evidence:any[]=[];
+    let researchText=''; let evidence:any[]=[];
     if(company?.website){
-      try{
-        const r=await researchWebsite(company.website);
-        researchText=r.text;
-        evidence=[{url:r.url,kind:'company_website'}];
-      }catch(e){
-        evidence=[{url:company.website,kind:'research_error',note:e instanceof Error?e.message:'Research failed'}];
-      }
+      try{ const r=await researchWebsite(company.website); researchText=r.text; evidence=[{url:r.url,kind:'company_website'}]; }
+      catch(e){ evidence=[{url:company.website,kind:'research_error',note:e instanceof Error?e.message:'Research failed'}]; }
     }
 
     const signals=extractSignals(researchText);
@@ -97,48 +85,35 @@ export async function POST(req:NextRequest){
     const opportunityPhrase=opportunity.replace(/^Automate\s+/i,'').replace(/^Audit\s+/i,'').replace(/\.$/,'').toLowerCase();
     const body=`Hi ${firstName}, noticed ${company?.name||'your team'} may have room to streamline ${opportunityPhrase}. We build ${offer} at Shalcon Intelligence. Worth comparing notes?`;
 
-    const updateResult=await db.from('leads').update({
-      score:score.total,
-      score_breakdown:score.breakdown,
-      buying_signals:signals,
-      opportunity,
-      recommended_offer:offer,
-      status:score.total>=50?'qualified':'discovered'
-    }).eq('id',lead.id).eq('organization_id',lead.organization_id);
+    const updateResult=await db.from('leads').update({score:score.total,score_breakdown:score.breakdown,buying_signals:signals,opportunity,recommended_offer:offer,status:score.total>=50?'qualified':'discovered'}).eq('id',lead.id).eq('organization_id',lead.organization_id);
     if(updateResult.error) stepError('Update lead score',updateResult.error);
 
-    const researchResult=await db.from('lead_research').insert({
-      organization_id:lead.organization_id,
-      lead_id:lead.id,
-      company_id:lead.company_id,
-      summary:researchText.slice(0,1200)||'No public company website text available.',
-      buying_signals:signals,
-      pain_points:[opportunity],
-      automation_opportunities:[opportunity],
-      evidence,
-      confidence:researchText?0.72:0.35
-    });
+    const researchResult=await db.from('lead_research').insert({organization_id:lead.organization_id,lead_id:lead.id,company_id:lead.company_id,summary:researchText.slice(0,1200)||'No public company website text available.',buying_signals:signals,pain_points:[opportunity],automation_opportunities:[opportunity],evidence,confidence:researchText?0.72:0.35});
     if(researchResult.error) stepError('Save research',researchResult.error);
 
-    const draftResult=await db.from('message_drafts').insert({
-      organization_id:lead.organization_id,
-      lead_id:lead.id,
-      channel:'linkedin_connection',
-      stage:'connection',
-      body,
-      personalization:{offer,opportunity},
-      status:'draft'
-    }).select('id').single();
-    if(draftResult.error) stepError('Save message draft',draftResult.error);
+    const existingDraft=await db.from('message_drafts').select('id').eq('organization_id',lead.organization_id).eq('lead_id',lead.id).eq('channel','linkedin_connection').eq('status','draft').order('created_at',{ascending:false}).limit(1).maybeSingle();
+    if(existingDraft.error) stepError('Find message draft',existingDraft.error);
+    let draftId:string;
+    if(existingDraft.data?.id){
+      draftId=existingDraft.data.id;
+      const r=await db.from('message_drafts').update({body,personalization:{offer,opportunity},updated_at:new Date().toISOString()}).eq('id',draftId);
+      if(r.error) stepError('Update message draft',r.error);
+    }else{
+      const r=await db.from('message_drafts').insert({organization_id:lead.organization_id,lead_id:lead.id,channel:'linkedin_connection',stage:'connection',body,personalization:{offer,opportunity},status:'draft'}).select('id').single();
+      if(r.error) stepError('Save message draft',r.error); draftId=r.data.id;
+    }
 
     if(score.total>=50){
-      const approvalResult=await db.from('approvals').insert({
-        organization_id:lead.organization_id,
-        lead_id:lead.id,
-        action:'linkedin_connection_message',
-        payload:{draft_id:draftResult.data?.id,body,linkedin_url:lead.linkedin_url}
-      });
-      if(approvalResult.error) stepError('Create approval',approvalResult.error);
+      const existingApproval=await db.from('approvals').select('id').eq('organization_id',lead.organization_id).eq('lead_id',lead.id).eq('action','linkedin_connection_message').eq('status','pending').order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if(existingApproval.error) stepError('Find approval',existingApproval.error);
+      const payload={draft_id:draftId,body,linkedin_url:lead.linkedin_url};
+      if(existingApproval.data?.id){
+        const r=await db.from('approvals').update({payload}).eq('id',existingApproval.data.id);
+        if(r.error) stepError('Update approval',r.error);
+      }else{
+        const r=await db.from('approvals').insert({organization_id:lead.organization_id,lead_id:lead.id,action:'linkedin_connection_message',payload});
+        if(r.error) stepError('Create approval',r.error);
+      }
     }
 
     return Response.json({score,signals,opportunity,offer,body,evidence});
