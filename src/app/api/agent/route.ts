@@ -65,7 +65,6 @@ export async function POST(req:NextRequest){
 
     if(!input.leadId) return Response.json({error:'leadId required'},{status:400});
 
-    // Fetch separately. Nested PostgREST embeds become ambiguous once same-org composite FKs are added.
     const leadResult=await db.from('leads').select('*').eq('id',input.leadId).maybeSingle();
     if(leadResult.error) stepError('Load lead',leadResult.error);
     const lead=leadResult.data;
@@ -123,7 +122,7 @@ export async function POST(req:NextRequest){
     const draftResult=await db.from('message_drafts').insert({
       organization_id:lead.organization_id,
       lead_id:lead.id,
-      channel:'linkedin',
+      channel:'linkedin_connection',
       stage:'connection',
       body,
       personalization:{offer,opportunity},
