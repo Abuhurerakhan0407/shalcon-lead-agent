@@ -17,7 +17,7 @@ export async function POST(req:NextRequest){
     const ir=await db.from('integrations').select('metadata').eq('organization_id',organizationId).eq('provider','linkedin').maybeSingle();
     const author=process.env.LINKEDIN_AUTHOR_URN||ir.data?.metadata?.author_urn; if(!author) return Response.json({error:'LINKEDIN_AUTHOR_URN is not configured'},{status:503});
     const payload={author,commentary:body,visibility:'PUBLIC',distribution:{feedDistribution:'MAIN_FEED',targetEntities:[],thirdPartyDistributionChannels:[]},lifecycleState:'PUBLISHED',isReshareDisabledByAuthor:false};
-    const r=await fetch('https://api.linkedin.com/rest/posts',{method:'POST',headers:{authorization:`Bearer ${tokens.access_token}`,'content-type':'application/json','X-Restli-Protocol-Version':'2.0.0','Linkedin-Version':process.env.LINKEDIN_VERSION||'202606'},body:JSON.stringify(payload)});
+    const r=await fetch('https://api.linkedin.com/rest/posts',{method:'POST',headers:{authorization:`Bearer ${tokens.access_token}`,'content-type':'application/json','X-Restli-Protocol-Version':'2.0.0','Linkedin-Version':process.env.LINKEDIN_VERSION||'202607'},body:JSON.stringify(payload)});
     if(!r.ok){const text=await r.text();return Response.json({error:`LinkedIn publish failed (${r.status}): ${text.slice(0,500)}`},{status:r.status})}
     const postId=r.headers.get('x-restli-id'); const contentId=typeof a.data.payload?.content_id==='string'?a.data.payload.content_id:null;
     if(contentId){
