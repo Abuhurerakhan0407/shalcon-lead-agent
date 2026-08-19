@@ -4,12 +4,13 @@ import { z } from 'zod';
 import { scoreLead } from '@/lib/scoring';
 import { researchWebsite } from '@/lib/safe-research';
 
+const SUPABASE_URL=process.env.NEXT_PUBLIC_SUPABASE_URL||'https://puzuizdhjeohgvbcnxkh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||'sb_publishable_UTSFJ_SIx5JfzP4LsXP0Bw_anWgHiiv';
 const Input=z.object({ action:z.enum(['research_score_draft','plan_goal']), leadId:z.string().uuid().optional(), goal:z.string().max(800).optional() });
 function serverClient(req:NextRequest): any{
-  const url=process.env.NEXT_PUBLIC_SUPABASE_URL!, key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
   const token=req.headers.get('authorization')?.replace(/^Bearer\s+/i,'');
-  if(!url||!key||!token) throw new Error('Unauthorized');
-  return createClient(url,key,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false}}) as any;
+  if(!token) throw new Error('Unauthorized');
+  return createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false}}) as any;
 }
 function extractSignals(text:string){ const out:string[]=[]; const patterns=[['WhatsApp','whatsapp'],['appointments','appointment'],['hiring','hiring'],['multiple branches','branch'],['admissions','admission'],['support','support']]; for(const [label,p] of patterns) if(text.toLowerCase().includes(p)) out.push(label); return out.slice(0,5); }
 function inferOpportunity(text:string,industry:string|null){ const s=(text+' '+(industry||'')).toLowerCase(); if(/clinic|health|appointment/.test(s)) return 'Automate enquiry qualification, appointment booking and follow-ups.'; if(/school|education|admission/.test(s)) return 'Automate admissions, parent communication and lead follow-ups.'; if(/insurance|renewal/.test(s)) return 'Automate renewal reminders and lead qualification.'; if(/e.?commerce|shopify|cart/.test(s)) return 'Automate cart recovery, support and lifecycle follow-ups.'; if(/recruit|staffing|hiring|\bhr\b/.test(s)) return 'Automate candidate screening and recruitment follow-ups.'; return 'Audit repetitive lead, support and follow-up workflows for automation.'; }
