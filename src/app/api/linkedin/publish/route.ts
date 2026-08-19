@@ -20,7 +20,10 @@ export async function POST(req:NextRequest){
     const r=await fetch('https://api.linkedin.com/rest/posts',{method:'POST',headers:{authorization:`Bearer ${tokens.access_token}`,'content-type':'application/json','X-Restli-Protocol-Version':'2.0.0','Linkedin-Version':process.env.LINKEDIN_VERSION||'202606'},body:JSON.stringify(payload)});
     if(!r.ok){const text=await r.text();return Response.json({error:`LinkedIn publish failed (${r.status}): ${text.slice(0,500)}`},{status:r.status})}
     const postId=r.headers.get('x-restli-id'); const contentId=typeof a.data.payload?.content_id==='string'?a.data.payload.content_id:null;
-    if(contentId) await db.from('content_items').update({status:'published',published_at:new Date().toISOString(),external_post_id:postId,updated_at:new Date().toISOString()}).eq('id',contentId).eq('organization_id',organizationId);
+    if(contentId){
+      const update=await db.from('content_items').update({status:'published',published_at:new Date().toISOString(),linkedin_post_urn:postId,updated_at:new Date().toISOString()}).eq('id',contentId).eq('organization_id',organizationId);
+      if(update.error) throw update.error;
+    }
     return Response.json({ok:true,postId});
   }catch(e){return Response.json({error:e instanceof Error?e.message:'LinkedIn publish failed'},{status:500})}
 }
