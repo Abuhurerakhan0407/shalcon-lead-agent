@@ -94,7 +94,8 @@ export async function POST(req:NextRequest){
     const offer=offerFor(company?.industry||null);
     const score=scoreLead({title:lead.job_title,industry:company?.industry,location:lead.location||company?.location,website:company?.website,signals,opportunity});
     const firstName=(lead.full_name||'there').trim().split(/\s+/)[0]||'there';
-    const body=`Hi ${firstName}, noticed ${company?.name||'your team'} could potentially improve ${opportunity.toLowerCase()} We build ${offer} at Shalcon Intelligence. Worth comparing notes?`;
+    const opportunityPhrase=opportunity.replace(/^Automate\s+/i,'').replace(/^Audit\s+/i,'').replace(/\.$/,'').toLowerCase();
+    const body=`Hi ${firstName}, noticed ${company?.name||'your team'} may have room to streamline ${opportunityPhrase}. We build ${offer} at Shalcon Intelligence. Worth comparing notes?`;
 
     const updateResult=await db.from('leads').update({
       score:score.total,
